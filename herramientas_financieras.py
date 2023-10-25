@@ -4,7 +4,7 @@ import datetime
 
 
 
-def precios(accion, fecha1, fecha2):
+def precios_old(accion, fecha1, fecha2):
     fecha1_ = datetime.datetime.strptime(fecha1, '%Y-%m-%d').strftime('%s')
     fecha2_ = datetime.datetime.strptime(fecha2, '%Y-%m-%d').strftime('%s')
     
@@ -17,11 +17,81 @@ def precios(accion, fecha1, fecha2):
     
     return df_
 
-def sumar(a, b):
-    sumatoria = a + b
-    
-    return sumatoria
 
+def precios(acciones='^MXX', fecha1=datetime.datetime.today().replace(year=datetime.datetime.today().year-1), 
+            fecha2=datetime.datetime.today(), periodo='1d'):
+    
+    if type(fecha1) != datetime.datetime:
+        fecha1 = datetime.datetime.strptime(fecha1, '%Y-%m-%d')
+        
+    if type(fecha2) != datetime.datetime:
+        fecha2 = datetime.datetime.strptime(fecha2, '%Y-%m-%d')
+        
+    fecha1 = fecha1.strftime('%s')
+    fecha2 = fecha2.strftime('%s')
+    
+    def obtener_datos(accion, fecha1, fecha2, periodo):
+        nombre_columnas = {
+            'Date': 'fecha',
+            'Adj Close': 'cierre_ajustado'
+        }
+        
+        url = f'https://query1.finance.yahoo.com/v7/finance/download/{accion}?period1={fecha1}&period2={fecha2}&interval=1d&events=history&includeAdjustedClose=true'
+        df = pd.read_csv(url)
+        df.rename(columns=nombre_columnas, inplace=True)
+        df['fecha'] = pd.to_datetime(df['fecha'])
+        df.set_index('fecha', inplace=True)
+        df.drop(columns=['Open', 'Close', 'High', 'Low', 'Volume'])
+        
+        return df
+    
+    if type(acciones)== str:
+        return obtener_datos(acciones, fecha1, fecha2, periodo)
+    
+    if type(acciones) == list:
+        return pd.concat([obtener_datos(accion, fecha1, fecha2, periodo)['cierre_ajustado'].rename(accion.replace('.mx', '')) for accion in acciones], axis=1)
+        
+
+
+
+
+
+
+
+
+
+def ipc(formato_yf = True):
+    """
+    Regresa una lista con todos los componentes del
+    IPC de la BMV.  Puede incluir formato de 
+    Yahoo Finance! 
+    
+    PARAMETROS
+    ----------------
+    formato_yf: Boleano True/False.  Default es True
+    """
+    
+    if type(formato_yf) is not bool:
+        raise ValueError('El parámetro debe de ser True o False')
+        
+    url = 'https://www.spglobal.com/spdji/en/idsexport/file.xls?hostIdentifier=48190c8c-42c4-46af-8d1a-0cd5db894797&selectedModule=Constituents&selectedSubModule=ConstituentsFullList&indexId=92330739&language_id=2&languageId=2'
+    
+    df = pd.read_excel(url, skiprows=9)
+    df.dropna(inplace=True)
+
+    df['TICKER'] = df['TICKER'].str.replace('*', '')
+    df['TICKER'] = df['TICKER'].str.replace(' ', '')
+    df['TICKER'] = df['TICKER'].str.lower()
+    
+    if formato_yf == True:
+        df['TICKER'] = df['TICKER'] + '.mx'
+        lista = df['TICKER'].to_list()
+        lista.insert(0, '^MXX')
+        
+    else:
+        lista = df['TICKER'].to_list()
+        
+    return lista
 
 
 
